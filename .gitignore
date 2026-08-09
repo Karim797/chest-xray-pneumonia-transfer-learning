@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset / extracted data
+chest_xray_data/
+chest-xray-pneumonia.zip
+
+# Generated artifacts
+*.npy
+*.npz
+*.keras
+*.h5
+validation_threshold_sweep.csv
+test_results.csv
+
+# Credentials / environment
+.env
+kaggle.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
