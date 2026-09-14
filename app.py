@@ -1,6 +1,7 @@
 from pathlib import Path
-import shutil
+import json
 import tempfile
+import zipfile
 
 import numpy as np
 import streamlit as st
@@ -25,14 +26,26 @@ def load_model():
     if not MODEL_PATH.is_file():
         raise FileNotFoundError(f"Model file not found: {MODEL_PATH.name}")
 
-    # Streamlit Cloud may mount repository files through a managed path.
-    # Copying the Keras archive to a normal temporary path avoids platform-specific
-    # file-handle errors while preserving the exact saved model.
-    cached_path = Path(tempfile.gettempdir()) / MODEL_PATH.name
-    if not cached_path.exists() or cached_path.stat().st_size != MODEL_PATH.stat().st_size:
-        shutil.copyfile(MODEL_PATH, cached_path)
+    # A .keras file is a ZIP archive containing the architecture and HDF5
+    # weights. Loading its two components separately avoids an OSError raised
+    # by Keras' archive loader on some Streamlit Community Cloud runtimes.
+    extraction_dir = Path(tempfile.mkdtemp(prefix="pneumonia_model_"))
+    weights_path = extraction_dir / "model.weights.h5"
 
-    return tf.keras.models.load_model(str(cached_path), compile=False)
+    with zipfile.ZipFile(str(MODEL_PATH), "r") as archive:
+        required = {"config.json", "model.weights.h5"}
+        missing = required.difference(archive.namelist())
+        if missing:
+            raise ValueError(f"Invalid model archive; missing: {', '.join(sorted(missing))}")
+
+        model_config = archive.read("config.json").decode("utf-8")
+        with archive.open("model.weights.h5") as source, weights_path.open("wb") as target:
+            while chunk := source.read(1024 * 1024):
+                target.write(chunk)
+
+    model = tf.keras.models.model_from_json(model_config)
+    model.load_weights(str(weights_path))
+    return model
 
 
 def prepare_image(image):
@@ -72,16 +85,17 @@ st.image(display_image, caption="Uploaded chest X-ray", use_container_width=True
 
 if st.button("Analyze X-ray", type="primary", use_container_width=True):
     try:
-        model = load_model()
         with st.spinner("Analyzing image..."):
-            # Direct eager inference avoids the tf.data worker used by model.predict,
-            # which is unnecessary for a single image and can fail on constrained hosts.
+            model = load_model()
             probabilities = np.asarray(model(model_input, training=False))[0]
     except Exception as exc:
-        st.error(f"The model could not complete the prediction: {type(exc).__name__}: {exc}")
+        st.error(
+            "The model could not complete the prediction. "
+            f"Technical details: {type(exc).__name__}: {exc}"
+        )
         st.stop()
 
-    if probabilities.shape[0] != 2 or not np.all(np.isfinite(probabilities)):
+    if probabilities.shape != (2,) or not np.all(np.isfinite(probabilities)):
         st.error("The model returned an unexpected output.")
         st.stop()
 
