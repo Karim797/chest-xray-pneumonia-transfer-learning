@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import BytesIO
 import tempfile
 import zipfile
 
@@ -36,17 +37,25 @@ def load_model():
         raise ModelStageError(f"temporary-directory | {type(exc).__name__}: {exc}") from exc
 
     try:
-        with zipfile.ZipFile(str(MODEL_PATH), "r") as archive:
+        model_bytes = MODEL_PATH.read_bytes()
+    except Exception as exc:
+        raise ModelStageError(f"archive-file-read | {type(exc).__name__}: {exc}") from exc
+
+    try:
+        with zipfile.ZipFile(BytesIO(model_bytes), "r") as archive:
             required = {"config.json", "model.weights.h5"}
             missing = required.difference(archive.namelist())
             if missing:
                 raise ValueError(f"Missing: {', '.join(sorted(missing))}")
             model_config = archive.read("config.json").decode("utf-8")
-            with archive.open("model.weights.h5") as source, weights_path.open("wb") as target:
-                while chunk := source.read(1024 * 1024):
-                    target.write(chunk)
+            weights_bytes = archive.read("model.weights.h5")
     except Exception as exc:
-        raise ModelStageError(f"archive-extraction | {type(exc).__name__}: {exc}") from exc
+        raise ModelStageError(f"archive-memory-read | {type(exc).__name__}: {exc}") from exc
+
+    try:
+        weights_path.write_bytes(weights_bytes)
+    except Exception as exc:
+        raise ModelStageError(f"weights-file-write | {type(exc).__name__}: {exc}") from exc
 
     try:
         model = tf.keras.models.model_from_json(model_config)
