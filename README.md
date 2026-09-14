@@ -1,12 +1,14 @@
 # Chest X-ray Pneumonia Detection with Transfer Learning
 
-[![Live App](https://img.shields.io/badge/Streamlit-Live_Demo-FF4B4B?logo=streamlit&logoColor=white)](STREAMLIT_URL)
+[![Live App](https://img.shields.io/badge/Streamlit-Live_Demo-FF4B4B?logo=streamlit&logoColor=white)](https://chest-xray-pneumonia-transfer-learning-l9pv6xfakfkroojaackwr7.streamlit.app/)
 
 A deep-learning project for binary pneumonia classification from chest X-ray images using **MobileNetV2** as a frozen ImageNet feature extractor and a custom classification head.
 
 ## Streamlit Application
 
 Upload a PNG or JPEG chest X-ray, run the MobileNetV2 model, and view the predicted class, confidence, and pneumonia probability. The app applies the same `preprocess_input` transformation and 160 × 160 RGB input size used during model training.
+
+**[Open the live Streamlit app](https://chest-xray-pneumonia-transfer-learning-l9pv6xfakfkroojaackwr7.streamlit.app/)**
 
 ## Results
 
