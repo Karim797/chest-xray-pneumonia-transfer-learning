@@ -1,5 +1,4 @@
 from pathlib import Path
-import json
 import tempfile
 import zipfile
 
@@ -21,30 +20,44 @@ st.set_page_config(
 )
 
 
+class ModelStageError(RuntimeError):
+    pass
+
+
 @st.cache_resource(show_spinner="Loading MobileNetV2 model...")
 def load_model():
     if not MODEL_PATH.is_file():
-        raise FileNotFoundError(f"Model file not found: {MODEL_PATH.name}")
+        raise ModelStageError(f"model-file-check | File not found: {MODEL_PATH.name}")
 
-    # A .keras file is a ZIP archive containing the architecture and HDF5
-    # weights. Loading its two components separately avoids an OSError raised
-    # by Keras' archive loader on some Streamlit Community Cloud runtimes.
-    extraction_dir = Path(tempfile.mkdtemp(prefix="pneumonia_model_"))
-    weights_path = extraction_dir / "model.weights.h5"
+    try:
+        extraction_dir = Path(tempfile.mkdtemp(prefix="pneumonia_model_"))
+        weights_path = extraction_dir / "model.weights.h5"
+    except Exception as exc:
+        raise ModelStageError(f"temporary-directory | {type(exc).__name__}: {exc}") from exc
 
-    with zipfile.ZipFile(str(MODEL_PATH), "r") as archive:
-        required = {"config.json", "model.weights.h5"}
-        missing = required.difference(archive.namelist())
-        if missing:
-            raise ValueError(f"Invalid model archive; missing: {', '.join(sorted(missing))}")
+    try:
+        with zipfile.ZipFile(str(MODEL_PATH), "r") as archive:
+            required = {"config.json", "model.weights.h5"}
+            missing = required.difference(archive.namelist())
+            if missing:
+                raise ValueError(f"Missing: {', '.join(sorted(missing))}")
+            model_config = archive.read("config.json").decode("utf-8")
+            with archive.open("model.weights.h5") as source, weights_path.open("wb") as target:
+                while chunk := source.read(1024 * 1024):
+                    target.write(chunk)
+    except Exception as exc:
+        raise ModelStageError(f"archive-extraction | {type(exc).__name__}: {exc}") from exc
 
-        model_config = archive.read("config.json").decode("utf-8")
-        with archive.open("model.weights.h5") as source, weights_path.open("wb") as target:
-            while chunk := source.read(1024 * 1024):
-                target.write(chunk)
+    try:
+        model = tf.keras.models.model_from_json(model_config)
+    except Exception as exc:
+        raise ModelStageError(f"architecture-loading | {type(exc).__name__}: {exc}") from exc
 
-    model = tf.keras.models.model_from_json(model_config)
-    model.load_weights(str(weights_path))
+    try:
+        model.load_weights(str(weights_path))
+    except Exception as exc:
+        raise ModelStageError(f"weights-loading | {type(exc).__name__}: {exc}") from exc
+
     return model
 
 
@@ -81,18 +94,20 @@ except Exception:
     st.error("The uploaded file could not be read as an image.")
     st.stop()
 
-st.image(display_image, caption="Uploaded chest X-ray", use_container_width=True)
+st.image(display_image, caption="Uploaded chest X-ray", width="stretch")
 
-if st.button("Analyze X-ray", type="primary", use_container_width=True):
+if st.button("Analyze X-ray", type="primary", width="stretch"):
     try:
         with st.spinner("Analyzing image..."):
             model = load_model()
-            probabilities = np.asarray(model(model_input, training=False))[0]
     except Exception as exc:
-        st.error(
-            "The model could not complete the prediction. "
-            f"Technical details: {type(exc).__name__}: {exc}"
-        )
+        st.error(f"Model loading failed at: {exc}")
+        st.stop()
+
+    try:
+        probabilities = np.asarray(model(model_input, training=False))[0]
+    except Exception as exc:
+        st.error(f"Inference failed | {type(exc).__name__}: {exc}")
         st.stop()
 
     if probabilities.shape != (2,) or not np.all(np.isfinite(probabilities)):
