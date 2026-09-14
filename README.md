@@ -1,77 +1,63 @@
 # Chest X-ray Pneumonia Detection with Transfer Learning
 
+[![Live App](https://img.shields.io/badge/Streamlit-Live_Demo-FF4B4B?logo=streamlit&logoColor=white)](STREAMLIT_URL)
+
 A deep-learning project for binary pneumonia classification from chest X-ray images using **MobileNetV2** as a frozen ImageNet feature extractor and a custom classification head.
 
-## Project Overview
+## Streamlit Application
 
-This notebook covers the complete workflow:
-
-- Downloading the Chest X-Ray Pneumonia dataset from Kaggle
-- Creating stratified train/validation splits
-- Extracting image features with MobileNetV2
-- Training a custom classification head
-- Handling class imbalance with class weights
-- Selecting the classification threshold using validation data
-- Evaluating with accuracy, sensitivity, specificity, F1 score, confusion matrix, and ROC-AUC
-- Visualizing correct predictions and failure cases
-- Saving the trained model and evaluation results
+Upload a PNG or JPEG chest X-ray, run the MobileNetV2 model, and view the predicted class, confidence, and pneumonia probability. The app applies the same `preprocess_input` transformation and 160 × 160 RGB input size used during model training.
 
 ## Results
 
-Results stored in the current notebook run:
+- Test accuracy: **80.8%**
+- Sensitivity / recall: **98.2%**
+- Specificity: **51.7%**
+- ROC-AUC: **0.9539**
+- Validation-selected threshold: **0.50**
+- Held-out test set: **624 images**
 
-- **Test accuracy:** 80.8%
-- **Sensitivity / Recall:** 98.2%
-- **Specificity:** 51.7%
-- **ROC-AUC:** 0.95
-- **Held-out test set:** 624 images
-- **Majority-class baseline accuracy:** 62.5%
+The model prioritizes sensitivity, but its 51.7% specificity means false-positive pneumonia alerts are possible.
 
-The notebook selects the decision threshold using the validation set rather than tuning it on the test set.
+## Technologies
 
-## Model
+Python, TensorFlow, Keras, MobileNetV2, NumPy, Pillow, Streamlit, scikit-learn, Matplotlib, Pandas, and Jupyter.
 
-- Backbone: MobileNetV2
-- Pretraining: ImageNet
-- Input size: 160 × 160 RGB
-- Transfer-learning strategy: frozen backbone + trainable classification head
-- Framework: TensorFlow / Keras
+## Project Structure
 
-## Dataset
-
-The notebook downloads the Kaggle **Chest X-Ray Images (Pneumonia)** dataset:
-
-`paultimothymooney/chest-xray-pneumonia`
-
-The dataset itself is intentionally not included in this repository.
+```text
+.
+├── app.py
+├── pneumonia_mobilenetv2.keras
+├── chest_xray_pneumonia_detection.ipynb
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
 
 ## How to Run
 
-1. Clone the repository.
-2. Install the dependencies:
-
 ```bash
+git clone https://github.com/Karim797/chest-xray-pneumonia-transfer-learning.git
+cd chest-xray-pneumonia-transfer-learning
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+streamlit run app.py
 ```
 
-3. Set your Kaggle credentials in the notebook or through environment variables.
-4. Open `chest_xray_pneumonia_detection.ipynb`.
-5. Run the cells in order.
+On Windows, activate the environment with `.venv\\Scripts\\activate`.
 
-## Repository Structure
+## Training Workflow
 
-```text
-chest-xray-pneumonia-transfer-learning/
-├── chest_xray_pneumonia_detection.ipynb
-├── README.md
-├── requirements.txt
-└── .gitignore
-```
+The notebook covers dataset download, stratified train/validation splitting, MobileNetV2 feature extraction, class-weighted head training, threshold selection, held-out evaluation, error analysis, and model persistence.
 
-## Notes
+Dataset: Kaggle `paultimothymooney/chest-xray-pneumonia`. The dataset is not stored in this repository.
 
-The extracted dataset, cached features, generated model files, and other large artifacts are excluded from Git tracking.
+## Responsible Use
 
-## Disclaimer
+This application is an educational portfolio demonstration. It is **not a medical device**, does not provide a clinical diagnosis, and must not replace review by a qualified healthcare professional.
 
-This project is for educational and portfolio purposes only. It is not intended for clinical diagnosis or medical decision-making.
+## License
+
+Released under the MIT License.

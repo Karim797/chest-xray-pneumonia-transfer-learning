@@ -7,23 +7,20 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
-# Dataset / extracted data
+# Dataset and generated training artifacts
 chest_xray_data/
 chest-xray-pneumonia.zip
-
-# Generated artifacts
 *.npy
 *.npz
-*.keras
 *.h5
+*.keras
+!pneumonia_mobilenetv2.keras
 validation_threshold_sweep.csv
 test_results.csv
 
-# Credentials / environment
+# Credentials and local files
 .env
 kaggle.json
-
-# OS / editors
 .DS_Store
 Thumbs.db
 .vscode/
