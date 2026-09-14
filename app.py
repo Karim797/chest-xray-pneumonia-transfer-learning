@@ -1,4 +1,6 @@
 from pathlib import Path
+import shutil
+import tempfile
 
 import numpy as np
 import streamlit as st
@@ -20,7 +22,17 @@ st.set_page_config(
 
 @st.cache_resource(show_spinner="Loading MobileNetV2 model...")
 def load_model():
-    return tf.keras.models.load_model(MODEL_PATH, compile=False)
+    if not MODEL_PATH.is_file():
+        raise FileNotFoundError(f"Model file not found: {MODEL_PATH.name}")
+
+    # Streamlit Cloud may mount repository files through a managed path.
+    # Copying the Keras archive to a normal temporary path avoids platform-specific
+    # file-handle errors while preserving the exact saved model.
+    cached_path = Path(tempfile.gettempdir()) / MODEL_PATH.name
+    if not cached_path.exists() or cached_path.stat().st_size != MODEL_PATH.stat().st_size:
+        shutil.copyfile(MODEL_PATH, cached_path)
+
+    return tf.keras.models.load_model(str(cached_path), compile=False)
 
 
 def prepare_image(image):
@@ -62,9 +74,15 @@ if st.button("Analyze X-ray", type="primary", use_container_width=True):
     try:
         model = load_model()
         with st.spinner("Analyzing image..."):
-            probabilities = model.predict(model_input, verbose=0)[0]
+            # Direct eager inference avoids the tf.data worker used by model.predict,
+            # which is unnecessary for a single image and can fail on constrained hosts.
+            probabilities = np.asarray(model(model_input, training=False))[0]
     except Exception as exc:
-        st.error(f"The model could not complete the prediction: {exc}")
+        st.error(f"The model could not complete the prediction: {type(exc).__name__}: {exc}")
+        st.stop()
+
+    if probabilities.shape[0] != 2 or not np.all(np.isfinite(probabilities)):
+        st.error("The model returned an unexpected output.")
         st.stop()
 
     normal_probability = float(probabilities[0])
